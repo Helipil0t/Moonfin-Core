@@ -313,7 +313,11 @@ class _LiveTvRecordingsScreenState extends State<LiveTvRecordingsScreen> {
     );
     if (confirmed == true) {
       try {
-        await _scheduleVm.cancelTimer(item.id);
+        final timerId = item.timerId;
+        if (timerId == null || timerId.isEmpty) {
+          throw StateError('Scheduled recording has no timer ID');
+        }
+        await _scheduleVm.cancelTimer(timerId);
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

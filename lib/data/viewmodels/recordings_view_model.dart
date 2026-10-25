@@ -3,6 +3,8 @@ import 'package:server_core/server_core.dart';
 
 class RecordingItem {
   final String id;
+  // A programme/item ID is used for artwork; cancellation needs the timer ID.
+  final String? timerId;
   final String name;
   final String? channelName;
   final String? episodeTitle;
@@ -18,6 +20,7 @@ class RecordingItem {
 
   const RecordingItem({
     required this.id,
+    this.timerId,
     required this.name,
     this.channelName,
     this.episodeTitle,
@@ -35,6 +38,7 @@ class RecordingItem {
   factory RecordingItem.fromJson(Map<String, dynamic> json) {
     return RecordingItem(
       id: json['Id']?.toString() ?? '',
+      timerId: json['TimerId']?.toString(),
       name: json['Name'] as String? ?? '',
       channelName: json['ChannelName'] as String?,
       episodeTitle: json['EpisodeTitle'] as String?,
@@ -52,6 +56,21 @@ class RecordingItem {
       seriesId: json['SeriesId']?.toString(),
       rawData: json,
     );
+  }
+
+  factory RecordingItem.fromTimer(TimerItem timer) {
+    final program = timer.programInfo;
+    return RecordingItem.fromJson({
+      ...timer.rawData,
+      ...?program,
+      'Id': program?['Id'] ?? timer.id,
+      'TimerId': timer.id,
+      'Name': timer.name.isNotEmpty ? timer.name : program?['Name'],
+      'ChannelName': timer.channelName ?? program?['ChannelName'],
+      if (timer.startDate != null)
+        'StartDate': timer.startDate!.toIso8601String(),
+      if (timer.endDate != null) 'EndDate': timer.endDate!.toIso8601String(),
+    });
   }
 
   String get subtitle {
@@ -244,20 +263,7 @@ class RecordingsViewModel extends ChangeNotifier {
                 t.startDate!.isBefore(next24h) &&
                 t.isUpcoming(now),
           )
-          .map((timer) {
-            final programData = timer.programInfo;
-            if (programData != null) {
-              return RecordingItem.fromJson(programData);
-            }
-            return RecordingItem(
-              id: timer.id,
-              name: timer.name,
-              channelName: timer.channelName,
-              startDate: timer.startDate,
-              endDate: timer.endDate,
-              rawData: timer.rawData,
-            );
-          })
+          .map(RecordingItem.fromTimer)
           .toList();
     } catch (_) {}
   }

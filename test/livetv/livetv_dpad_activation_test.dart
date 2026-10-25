@@ -228,6 +228,42 @@ void main() {
   });
 
   group('schedule screen', () {
+    for (final standalone in [true, false]) {
+      testWidgets(
+          '${standalone ? 'standalone schedule' : 'recordings Schedule tab'} cancels the timer, not its programme',
+          (tester) async {
+        final start = DateTime.now().add(const Duration(days: 3));
+        var cancelled = false;
+        when(() => liveTvApi.getTimers()).thenAnswer((_) async => {
+          'Items': cancelled ? <dynamic>[] : [
+            {
+              'Id': 'timer-id',
+              'Name': _scheduledName,
+              'StartDate': start.toUtc().toIso8601String(),
+              'ProgramInfo': {'Id': 'programme-id', 'Name': _scheduledName},
+            },
+          ],
+        });
+        when(() => liveTvApi.cancelTimer('timer-id')).thenAnswer((_) async {
+          cancelled = true;
+        });
+        await pumpScreen(tester, standalone
+            ? const LiveTvScheduleScreen() : const LiveTvRecordingsScreen());
+        if (!standalone) {
+          await tester.tap(find.textContaining((await l10n()).schedule));
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.text(_scheduledName).first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text((await l10n()).yesCancel));
+        await tester.pumpAndSettle();
+        verify(() => liveTvApi.cancelTimer('timer-id')).called(1);
+        verifyNever(() => liveTvApi.cancelTimer('programme-id'));
+        expect(find.text((await l10n()).failedToCancelRecording), findsNothing);
+        expect(find.text(_scheduledName), findsNothing);
+      });
+    }
+
     testWidgets('a scheduled tile activates on Enter from a remote',
         (tester) async {
       await pumpScreen(tester, const LiveTvScheduleScreen());
